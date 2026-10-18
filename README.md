@@ -79,6 +79,19 @@ PC へのインストールや Google Cloud の設定は不要で、ブラウザ
 Google のドキュメントでは Chat API の構成（Google Cloud での設定）が必要とされています。
 そのため Google Cloud を使えない環境では、チャットのカードにエラーが表示される可能性があります。
 その場合は `Config.gs` の `chat.enabled` を `false` にしてください。
+
+#### Chat API を使うための設定（Google Cloud が使える場合）
+
+1. [Google Cloud コンソール](https://console.cloud.google.com/) でプロジェクトを作成し、ダッシュボードのトップに表示される「プロジェクト番号」を控える
+2. 「API とサービス → OAuth 同意画面」を設定する（会社の Workspace アカウントならユーザーの種類は「内部」）
+3. 「API とサービス → ライブラリ」で **Google Chat API** を有効にする
+4. Google Chat API の「構成」画面で、アプリ名・アバター URL・説明を入力して保存する
+   （ダッシュボードはこのアプリを使いません。Chat API を呼ぶための登録です）
+5. GAS エディタの「プロジェクトの設定 → Google Cloud Platform（GCP）プロジェクト → プロジェクトを変更」で、手順 1 のプロジェクト番号を設定する
+6. ウェブアプリを開き直し、権限の確認画面が出たら許可する
+
+うまくいかない場合は、チャットのカードに表示されるエラー文を確認してください。
+会社の Workspace では、管理者が Google Cloud プロジェクトの作成や Chat API の利用を制限していることがあります。
 あわせて `appsscript.json` の `enabledAdvancedServices` と `chat.*` の権限を削除すると、初回の許可画面から Chat の項目がなくなります。
 
 ### Redmine（UrlFetchApp）
