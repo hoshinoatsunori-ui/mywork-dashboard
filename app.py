@@ -26,11 +26,15 @@ DATA = os.path.join(BASE, "data")
 
 def load_config():
     path = os.path.join(BASE, "config.json")
-    if not os.path.exists(path):
+    demo = not os.path.exists(path)
+    if demo:
         path = os.path.join(BASE, "config.example.json")
-        print("config.json が無いため config.example.json（デモ設定）で起動します")
+        print("config.json が無いため、デモデータで起動します")
     with open(path, encoding="utf-8") as f:
         cfg = json.load(f)
+    if demo:
+        cfg["mail"]["provider"] = cfg["calendar"]["provider"] = "demo"
+        cfg["redmine"]["demo"] = True
     # 秘密情報は環境変数でも指定可能
     if os.environ.get("DASHBOARD_IMAP_PASSWORD"):
         cfg["mail"]["imap"]["password"] = os.environ["DASHBOARD_IMAP_PASSWORD"]
@@ -131,13 +135,13 @@ def post_attendance():
 @app.get("/api/mail")
 def get_mail():
     c = CFG["mail"]
-    return fetch("mail", c.get("refresh_seconds", 300), lambda: providers.mail_counts(c))
+    return fetch("mail", c.get("refresh_seconds", 300), lambda: providers.mail_counts(c, CFG.get("google"), BASE))
 
 
 @app.get("/api/calendar")
 def get_calendar():
     c = CFG["calendar"]
-    return fetch("calendar", c.get("refresh_seconds", 600), lambda: providers.today_events(c))
+    return fetch("calendar", c.get("refresh_seconds", 600), lambda: providers.today_events(c, CFG.get("google"), BASE))
 
 
 @app.get("/api/redmine")
@@ -270,6 +274,17 @@ def launch(target, args=""):
             subprocess.Popen(["xdg-open", target])
 
 
+def uses_google():
+    return "google" in (CFG["mail"].get("provider"), CFG["calendar"].get("provider"))
+
+
 if __name__ == "__main__":
+    from dashboard import google_api
+
+    gcfg = CFG.get("google", {})
+    if "--google-login" in sys.argv or (uses_google() and not google_api.has_token(gcfg, BASE)):
+        print("ブラウザで Google にログインしてください...")
+        google_api.login(gcfg, BASE)
+        print("ログイン情報を保存しました")
     srv = CFG.get("server", {})
     app.run(host=srv.get("host", "127.0.0.1"), port=int(srv.get("port", 8080)))

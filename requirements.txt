@@ -1,4 +1,7 @@
 flask>=3.0
+# Gmail / Google カレンダー（Google API）
+google-api-python-client>=2.0
+google-auth-oauthlib>=1.0
 # カレンダーを ICS URL から読む場合
 icalendar>=5.0
 recurring-ical-events>=2.0

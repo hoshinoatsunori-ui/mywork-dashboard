@@ -14,8 +14,11 @@ from datetime import date, datetime, time, timedelta
 
 # ---------------------------------------------------------------- メール
 
-def mail_counts(cfg):
+def mail_counts(cfg, google_cfg=None, base=None):
     provider = cfg.get("provider", "demo")
+    if provider == "google":
+        from . import google_api
+        return google_api.mail_counts(google_cfg or {}, base)
     if provider == "imap":
         return _imap_counts(cfg["imap"])
     if provider == "outlook":
@@ -82,9 +85,12 @@ def _outlook_mail_counts(_c):
 
 # ---------------------------------------------------------------- カレンダー
 
-def today_events(cfg):
+def today_events(cfg, google_cfg=None, base=None):
     provider = cfg.get("provider", "demo")
-    if provider == "ics":
+    if provider == "google":
+        from . import google_api
+        events = google_api.today_events(google_cfg or {}, base)
+    elif provider == "ics":
         events = _ics_events(cfg.get("ics_urls", []))
     elif provider == "outlook":
         events = _outlook_events()
