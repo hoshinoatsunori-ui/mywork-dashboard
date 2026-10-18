@@ -1,3 +1,4 @@
+<script>
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -19,15 +20,30 @@ function esc(s) {
   ));
 }
 
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { "Content-Type": "application/json", "X-Dashboard": "1", ...(opts.headers || {}) },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+// google.script.run（Code.gs の関数呼び出し）を Promise で包む
+function api(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler((e) => reject(new Error(e && e.message ? e.message : String(e))))[fn](...args);
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+}
+
+// iframe 内では Clipboard API が使えない場合があるため execCommand にフォールバック
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch (_) { /* fallback */ }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand("copy");
+  ta.remove();
+  if (!ok) throw new Error("コピーできませんでした");
 }
 
 function toast(msg) {
@@ -59,7 +75,7 @@ function tickClock() {
 
 let att = null;
 async function loadAttendance() {
-  att = await api("/api/attendance");
+  att = await api("getAttendance");
   renderAttendance();
 }
 
@@ -102,18 +118,16 @@ function renderAttendance() {
 }
 
 $("btn-clock").addEventListener("click", async () => {
-  let body;
-  if (!att.clock_in) body = { action: "clock_in" };
-  else if (!att.clock_out) body = { action: "clock_out" };
-  else body = { action: "edit", out: "" };
-  att = await api("/api/attendance", { method: "POST", body });
+  if (!att.clock_in) att = await api("updateAttendance", "clock_in");
+  else if (!att.clock_out) att = await api("updateAttendance", "clock_out");
+  else att = await api("updateAttendance", "edit", { out: "" });
   renderAttendance();
 });
 
 for (const [id, key] of [["att-in", "in"], ["att-out", "out"]]) {
   $(id).addEventListener("change", async (e) => {
     try {
-      att = await api("/api/attendance", { method: "POST", body: { action: "edit", [key]: e.target.value } });
+      att = await api("updateAttendance", "edit", { [key]: e.target.value });
       renderAttendance();
     } catch (err) {
       toast(err.message);
@@ -124,26 +138,26 @@ for (const [id, key] of [["att-in", "in"], ["att-out", "out"]]) {
 /* ------------------------------------------------------------ メール */
 
 async function loadMail(refresh = false) {
-  const r = await api("/api/mail" + (refresh ? "?refresh=1" : ""));
+  const r = await api("getMail", refresh);
   if (!r.ok) {
     $("mail-today").textContent = "-";
     $("mail-unread").textContent = "-";
     $("mail-meta").innerHTML = `<span class="error">${esc(r.error)}</span>`;
     return;
   }
-  $("mail-today").textContent = r.received_today;
-  $("mail-unread").textContent = r.unread;
+  $("mail-today").textContent = r.received_today + (r.over ? "+" : "");
+  $("mail-unread").textContent = r.unread + (r.over ? "+" : "");
   $("mail-meta").textContent = `${r.demo ? "デモデータ ・ " : ""}${r.fetched_at} 更新`;
 }
 
 /* ------------------------------------------------------------ チャット */
 
 async function loadChat(refresh = false) {
-  const r = await api("/api/chat" + (refresh ? "?refresh=1" : ""));
+  const r = await api("getChat", refresh);
   if (r.disabled) {
     $("chat-total").textContent = "-";
     $("chat-spaces").innerHTML = "";
-    $("chat-meta").textContent = "チャット連携は無効です（config.json）";
+    $("chat-meta").textContent = "チャット連携は無効です（Config.gs）";
     return;
   }
   if (!r.ok) {
@@ -210,7 +224,7 @@ $("cal-next").addEventListener("click", () => {
 
 let events = [];
 async function loadEvents(refresh = false) {
-  const r = await api("/api/calendar" + (refresh ? "?refresh=1" : ""));
+  const r = await api("getEvents", refresh);
   if (!r.ok) {
     $("events").innerHTML = "";
     $("events-meta").innerHTML = `<span class="error">${esc(r.error)}</span>`;
@@ -248,7 +262,7 @@ function renderEvents() {
 /* ------------------------------------------------------------ タスク */
 
 async function loadTasks() {
-  tasks = await api("/api/tasks");
+  tasks = await api("getTasks");
   renderTasks();
   renderCalendar();
 }
@@ -277,10 +291,7 @@ function renderTasks() {
 $("task-due").value = todayISO();
 $("task-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  tasks = await api("/api/tasks", {
-    method: "POST",
-    body: { title: $("task-title").value, due: $("task-due").value },
-  });
+  tasks = await api("addTask", $("task-title").value, $("task-due").value);
   $("task-title").value = "";
   renderTasks();
   renderCalendar();
@@ -291,9 +302,9 @@ $("tasks").addEventListener("click", async (e) => {
   if (!li) return;
   const id = li.dataset.id;
   if (e.target.matches("input[type=checkbox]")) {
-    tasks = await api(`/api/tasks/${id}`, { method: "PATCH", body: { done: e.target.checked } });
+    tasks = await api("updateTask", id, e.target.checked);
   } else if (e.target.matches(".del")) {
-    tasks = await api(`/api/tasks/${id}`, { method: "DELETE" });
+    tasks = await api("deleteTask", id);
   } else return;
   renderTasks();
   renderCalendar();
@@ -302,9 +313,9 @@ $("tasks").addEventListener("click", async (e) => {
 /* ------------------------------------------------------------ Redmine */
 
 async function loadRedmine(refresh = false) {
-  const r = await api("/api/redmine" + (refresh ? "?refresh=1" : ""));
+  const r = await api("getRedmine", refresh);
   if (r.disabled) {
-    $("issues").innerHTML = `<li class="empty">Redmine 連携は無効です（config.json）</li>`;
+    $("issues").innerHTML = `<li class="empty">Redmine 連携は無効です（Config.gs）</li>`;
     $("issues-meta").textContent = "";
     return;
   }
@@ -334,41 +345,50 @@ async function loadRedmine(refresh = false) {
 
 /* ------------------------------------------------------------ ショートカット */
 
-const SC_ICON = { folder: "📁", app: "🚀", url: "🌐" };
+const SC_ICON = { folder: "📁", url: "🌐" };
 let shortcuts = [];
 let editing = false;
 
 async function loadShortcuts() {
-  shortcuts = await api("/api/shortcuts");
+  shortcuts = await api("getShortcuts");
   renderShortcuts();
 }
 
+// URL は <a> で開く（GAS の画面は iframe 内のため、リンクで新しいタブを開く）
+// フォルダはブラウザから開けないため、クリックでパスをコピーする
 function renderShortcuts() {
   const box = $("shortcuts");
   box.classList.toggle("editing", editing);
-  box.innerHTML = shortcuts.map((s) => `
-    <button class="sc" data-id="${s.id}" title="${esc(s.target)}" draggable="${editing}">
+  box.innerHTML = shortcuts.map((s) => {
+    const inner = `
       <span class="sc-icon">${SC_ICON[s.type] || "📄"}</span>
       <span class="sc-name">${esc(s.name)}</span>
-      <span class="sc-del" title="削除">✕</span>
-    </button>`).join("") || `<div class="empty">✎ からショートカットを登録できます</div>`;
+      <span class="sc-del" title="削除">✕</span>`;
+    return s.type === "url"
+      ? `<a class="sc" data-id="${s.id}" href="${esc(s.target)}" target="_blank" rel="noopener" title="${esc(s.target)}" draggable="${editing}">${inner}</a>`
+      : `<button class="sc" data-id="${s.id}" title="クリックでパスをコピー: ${esc(s.target)}" draggable="${editing}">${inner}</button>`;
+  }).join("") || `<div class="empty">✎ からショートカットを登録できます</div>`;
 }
 
 $("shortcuts").addEventListener("click", async (e) => {
   const el = e.target.closest(".sc");
   if (!el) return;
-  const id = el.dataset.id;
-  if (e.target.matches(".sc-del")) {
-    shortcuts = await api(`/api/shortcuts/${id}`, { method: "DELETE" });
-    renderShortcuts();
+  const item = shortcuts.find((s) => s.id === el.dataset.id);
+  if (editing) {
+    e.preventDefault();
+    if (e.target.matches(".sc-del")) {
+      shortcuts = await api("deleteShortcut", item.id);
+      renderShortcuts();
+    }
     return;
   }
-  if (editing) return;
-  try {
-    const r = await api(`/api/shortcuts/${id}/open`, { method: "POST" });
-    if (r.url) window.open(r.url, "_blank", "noopener");
-  } catch (err) {
-    toast(`起動できませんでした: ${err.message}`);
+  if (item.type === "folder") {
+    try {
+      await copyText(item.target);
+      toast("パスをコピーしました。エクスプローラーのアドレス欄に貼り付けてください");
+    } catch (err) {
+      toast(err.message);
+    }
   }
 });
 
@@ -384,7 +404,7 @@ $("shortcuts").addEventListener("drop", async (e) => {
   if (!dragId || !over || dragId === over) return;
   const ids = shortcuts.map((s) => s.id).filter((i) => i !== dragId);
   ids.splice(ids.indexOf(over), 0, dragId);
-  shortcuts = await api("/api/shortcuts/order", { method: "PUT", body: { ids } });
+  shortcuts = await api("reorderShortcuts", ids);
   renderShortcuts();
 });
 
@@ -395,28 +415,21 @@ $("sc-edit").addEventListener("click", () => {
 });
 
 $("sc-type").addEventListener("change", (e) => {
-  $("sc-args").hidden = e.target.value !== "app";
   $("sc-target").placeholder = {
+    url: "URL（例: https://drive.google.com/）",
     folder: "フォルダのパス（例: C:\\Users\\me\\Documents、\\\\server\\share）",
-    app: "アプリ / ファイルのパス（例: C:\\Windows\\notepad.exe）",
-    url: "URL（例: https://redmine.example.com）",
   }[e.target.value];
 });
-$("sc-args").hidden = true;
 
 $("sc-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
-    shortcuts = await api("/api/shortcuts", {
-      method: "POST",
-      body: {
-        type: $("sc-type").value,
-        name: $("sc-name").value,
-        target: $("sc-target").value,
-        args: $("sc-args").value,
-      },
+    shortcuts = await api("addShortcut", {
+      type: $("sc-type").value,
+      name: $("sc-name").value,
+      target: $("sc-target").value,
     });
-    $("sc-name").value = $("sc-target").value = $("sc-args").value = "";
+    $("sc-name").value = $("sc-target").value = "";
     renderShortcuts();
   } catch (err) {
     toast(err.message);
@@ -448,8 +461,9 @@ setInterval(tickClock, 1000);
 loadAll();
 setInterval(safe(loadAttendance), 60 * 1000);
 setInterval(renderEvents, 60 * 1000);
-// サーバー側でキャッシュしているため、ここでは頻繁に問い合わせても外部へのアクセスは増えない
-setInterval(safe(loadMail), 60 * 1000);
-setInterval(safe(loadChat), 60 * 1000);
-setInterval(safe(loadEvents), 60 * 1000);
-setInterval(safe(loadRedmine), 60 * 1000);
+// サーバー側（CacheService）でキャッシュしているため、外部へのアクセスは各キャッシュ時間に 1 回程度
+setInterval(safe(loadMail), 5 * 60 * 1000);
+setInterval(safe(loadChat), 2 * 60 * 1000);
+setInterval(safe(loadEvents), 5 * 60 * 1000);
+setInterval(safe(loadRedmine), 5 * 60 * 1000);
+</script>

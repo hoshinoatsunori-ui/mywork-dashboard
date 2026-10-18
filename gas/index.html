@@ -2,10 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Work Dashboard</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂</text></svg>">
-  <link rel="stylesheet" href="/static/style.css">
+  <base target="_blank">
+  <?!= include('style') ?>
 </head>
 <body>
   <main class="grid">
@@ -127,19 +125,17 @@
       <div id="shortcuts" class="shortcuts"></div>
       <form id="sc-form" class="inline-form sc-form" hidden>
         <select id="sc-type">
-          <option value="folder">フォルダ</option>
-          <option value="app">アプリ / ファイル</option>
           <option value="url">URL</option>
+          <option value="folder">フォルダ（パスをコピー）</option>
         </select>
         <input id="sc-name" placeholder="表示名" required>
-        <input id="sc-target" placeholder="パス または URL（例: C:\Users\me\Documents）" required>
-        <input id="sc-args" placeholder="引数（任意）">
+        <input id="sc-target" placeholder="URL（例: https://drive.google.com/）" required>
         <button class="btn">登録</button>
       </form>
     </section>
 
   </main>
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/app.js"></script>
+  <?!= include('app') ?>
 </body>
 </html>

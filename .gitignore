@@ -1,6 +1,3 @@
-config.json
-data/
-__pycache__/
-*.pyc
-.venv/
-credentials.json
+.clasp.json
+.clasprc.json
+node_modules/
