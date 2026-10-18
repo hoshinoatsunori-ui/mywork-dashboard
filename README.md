@@ -8,6 +8,7 @@ PC 上で動かすローカル Web アプリです。ブラウザで開いて使
 | カレンダー | 月表示カレンダー（タスク期限日に印）、今日の予定一覧 |
 | タスク | 今日のタスク（期限切れを含む）の追加・完了・削除 |
 | メール | 今日の受信メール数、未読メール数 |
+| チャット | Google Chat の未読メッセージ数（合計とスペースごと） |
 | Redmine | 自分が担当の未完了チケットのうち、期日が近いもの・期限切れのもの |
 | ショートカット | フォルダ・アプリ・URL を登録してワンクリックで開く（ドラッグで並べ替え） |
 
@@ -22,14 +23,16 @@ Python 3.10 以上が必要です。
 
 `config.json` が無い場合はデモデータで起動します。実データにつなぐには
 `config.example.json` を `config.json` にコピーして編集してください
-（初期値: 勤務 9:00〜17:30、メール・カレンダーは Google）。
+（初期値: 勤務 9:00〜17:30、メール・カレンダー・チャットは Google）。
 
-## Google（Gmail / Google カレンダー）の準備
+## Google（Gmail / Google カレンダー / Google Chat）の準備
 
-Gmail API と Google Calendar API を読み取り専用で使います。初回のみ次の準備が必要です。
+Gmail API・Google Calendar API・Google Chat API を読み取り専用で使います。初回のみ次の準備が必要です。
 
 1. [Google Cloud コンソール](https://console.cloud.google.com/) でプロジェクトを作成（既存のものでも可）
-2. 「API とサービス → ライブラリ」で **Gmail API** と **Google Calendar API** を有効化
+2. 「API とサービス → ライブラリ」で **Gmail API**、**Google Calendar API**、**Google Chat API** を有効化
+   - Google Chat API は、有効化したあと「構成」画面でアプリ名・アバター URL・説明を入力して保存しておく必要があります
+     （Google の Chat API ドキュメントの手順。入力内容はダッシュボードの動作には影響しません）
 3. 「OAuth 同意画面」を設定（会社の Google Workspace なら種類は「内部」、個人の Gmail なら「外部」にして自分をテストユーザーに追加）
 4. 「認証情報 → 認証情報を作成 → OAuth クライアント ID」で種類「デスクトップ アプリ」を作成し、JSON をダウンロード
 5. ダウンロードした JSON を `credentials.json` という名前でこのフォルダに置く
@@ -74,6 +77,21 @@ Gmail API と Google Calendar API を読み取り専用で使います。初回�
 - Gmail を IMAP で読む場合は、Google アカウントの「アプリ パスワード」を使います
 - パスワードは環境変数 `DASHBOARD_IMAP_PASSWORD` でも指定できます
 
+### チャット（Google Chat）
+
+```json
+"chat": { "provider": "google", "refresh_seconds": 120 }
+```
+
+- `provider`: `google` / `demo` / `none`（`none` で非表示）
+- Google Chat API は **Google Workspace のアカウント**（会社・学校のアカウント）で利用できます。個人の Gmail アカウントでは使えないため `none` にしてください
+- 各スペース・DM について、自分の既読位置より後に投稿されたメッセージを未読として数えます
+  （スレッド内の返信も含みます。1 スペースあたり 99 件を超えると「99+」表示）
+- 調べるのは最近動きのあったスペースから `google.chat_max_spaces` 件（既定 50）です。既読位置以降に動きのないスペースは問い合わせを省略します
+- DM はスペース名が取得できないため「ダイレクト メッセージ」と表示します。名前をクリックすると Google Chat を開きます
+- Google Chat アプリ上の未読表示とは数え方が一致しない場合があります（例: ミュートしたスペースも数えます）
+- チャットを有効にすると権限が追加されるため、既存のログイン情報がある場合も起動時にもう一度 Google のログイン画面が開きます
+
 ### カレンダー（今日の予定）
 
 | `provider` | 説明 |
@@ -113,7 +131,7 @@ Outlook on the web は「予定表の公開」で ICS の URL を取得できま
 
 - サーバーは既定で `127.0.0.1` のみで待ち受けます。アプリ起動機能があるため、`host` を `0.0.0.0` などに変えて他の PC から接続できるようにはしないでください
 - 書き込み系の API はカスタムヘッダー必須にしており、他の Web サイトからのリクエストは拒否されます
-- Google には読み取り専用の権限（`gmail.readonly`, `calendar.readonly`）のみ要求します
+- Google には読み取り専用の権限（`gmail.readonly`, `calendar.readonly`、チャット有効時は `chat.spaces.readonly`, `chat.messages.readonly`, `chat.users.readstate.readonly`）のみ要求します
 - `config.json`、`credentials.json`、`data/`（Google のトークンを含む）は `.gitignore` 済みです
 
 ## 動作確認の範囲
@@ -121,6 +139,6 @@ Outlook on the web は「予定表の公開」で ICS の URL を取得できま
 - デモ / IMAP 以外の各機能（勤怠計算、ICS 読み込み、Redmine API のリクエスト、タスク、ショートカット API）は Linux 上で動作確認済み
 - `outlook` プロバイダ（メール・予定）は Windows 専用のため、この環境では未検証です。
   予定の絞り込みでは Microsoft のドキュメントにある `mm/dd/yyyy hh:mm AM/PM` 形式の日時を使っています
-- Google（Gmail / カレンダー）は、API の応答を模擬したテストでリクエスト内容と集計・表示処理を確認済み。
+- Google（Gmail / カレンダー / Chat）は、API の応答を模擬したテストでリクエスト内容と集計・表示処理を確認済み。
   実際の Google アカウントでの OAuth ログインと取得は、この環境に認証情報が無いため未検証です
 - IMAP は実サーバーでは未検証です

@@ -83,6 +83,25 @@ def _outlook_mail_counts(_c):
     return {"received_today": count, "unread": int(inbox.UnReadItemCount)}
 
 
+# ---------------------------------------------------------------- チャット
+
+def chat_unread(cfg, google_cfg=None, base=None):
+    provider = cfg.get("provider", "demo")
+    if provider == "google":
+        from . import google_api
+        return google_api.chat_unread(google_cfg or {}, base)
+    if provider == "demo":
+        return {
+            "spaces": [
+                {"name": "開発チーム", "type": "SPACE", "unread": 4, "over": False, "url": ""},
+                {"name": "ダイレクト メッセージ", "type": "DIRECT_MESSAGE", "unread": 2, "over": False, "url": ""},
+                {"name": "全社連絡", "type": "SPACE", "unread": 1, "over": False, "url": ""},
+            ],
+            "total": 7, "over": False, "demo": True,
+        }
+    raise ValueError(f"未対応のチャットプロバイダです: {provider}")
+
+
 # ---------------------------------------------------------------- カレンダー
 
 def today_events(cfg, google_cfg=None, base=None):

@@ -29,6 +29,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -45,8 +46,9 @@ body {
   margin: 0 auto;
   grid-template-columns: repeat(12, 1fr);
 }
-.clock-card     { grid-column: span 8; }
-.mail-card      { grid-column: span 4; }
+.clock-card     { grid-column: span 6; }
+.mail-card      { grid-column: span 3; }
+.chat-card      { grid-column: span 3; }
 .cal-card       { grid-column: span 4; }
 .events-card    { grid-column: span 4; }
 .tasks-card     { grid-column: span 4; }
@@ -181,8 +183,9 @@ input, select {
 }
 .badge.overdue { background: var(--danger); color: #fff; }
 .badge.today   { background: var(--warn); color: #fff; }
-.issue a { color: inherit; text-decoration: none; }
-.issue a:hover { text-decoration: underline; }
+.issue a, .chat-list a { color: inherit; text-decoration: none; }
+.issue a:hover, .chat-list a:hover { text-decoration: underline; }
+.chat-list li { padding: 4px 0; font-size: 13px; }
 
 .inline-form { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .inline-form input:first-of-type { flex: 1; }

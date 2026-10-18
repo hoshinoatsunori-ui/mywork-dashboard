@@ -34,12 +34,15 @@ def load_config():
         cfg = json.load(f)
     if demo:
         cfg["mail"]["provider"] = cfg["calendar"]["provider"] = "demo"
+        cfg.setdefault("chat", {})["provider"] = "demo"
         cfg["redmine"]["demo"] = True
     # 秘密情報は環境変数でも指定可能
     if os.environ.get("DASHBOARD_IMAP_PASSWORD"):
         cfg["mail"]["imap"]["password"] = os.environ["DASHBOARD_IMAP_PASSWORD"]
     if os.environ.get("DASHBOARD_REDMINE_API_KEY"):
         cfg["redmine"]["api_key"] = os.environ["DASHBOARD_REDMINE_API_KEY"]
+    cfg.setdefault("chat", {"provider": "none"})
+    cfg.setdefault("google", {})["use_chat"] = cfg["chat"].get("provider") == "google"
     return cfg
 
 
@@ -136,6 +139,14 @@ def post_attendance():
 def get_mail():
     c = CFG["mail"]
     return fetch("mail", c.get("refresh_seconds", 300), lambda: providers.mail_counts(c, CFG.get("google"), BASE))
+
+
+@app.get("/api/chat")
+def get_chat():
+    c = CFG["chat"]
+    if c.get("provider", "none") == "none":
+        return jsonify({"ok": True, "disabled": True})
+    return fetch("chat", c.get("refresh_seconds", 120), lambda: providers.chat_unread(c, CFG.get("google"), BASE))
 
 
 @app.get("/api/calendar")
@@ -275,7 +286,8 @@ def launch(target, args=""):
 
 
 def uses_google():
-    return "google" in (CFG["mail"].get("provider"), CFG["calendar"].get("provider"))
+    return "google" in (CFG["mail"].get("provider"), CFG["calendar"].get("provider"),
+                        CFG["chat"].get("provider"))
 
 
 if __name__ == "__main__":

@@ -136,6 +136,33 @@ async function loadMail(refresh = false) {
   $("mail-meta").textContent = `${r.demo ? "デモデータ ・ " : ""}${r.fetched_at} 更新`;
 }
 
+/* ------------------------------------------------------------ チャット */
+
+async function loadChat(refresh = false) {
+  const r = await api("/api/chat" + (refresh ? "?refresh=1" : ""));
+  if (r.disabled) {
+    $("chat-total").textContent = "-";
+    $("chat-spaces").innerHTML = "";
+    $("chat-meta").textContent = "チャット連携は無効です（config.json）";
+    return;
+  }
+  if (!r.ok) {
+    $("chat-total").textContent = "-";
+    $("chat-spaces").innerHTML = "";
+    $("chat-meta").innerHTML = `<span class="error">${esc(r.error)}</span>`;
+    return;
+  }
+  $("chat-total").textContent = r.total + (r.over ? "+" : "");
+  $("chat-spaces").innerHTML = r.spaces.slice(0, 5).map((s) => {
+    const name = s.url
+      ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`
+      : esc(s.name);
+    return `<li><span class="grow title">${name}</span>
+      <span class="badge">${s.unread}${s.over ? "+" : ""}</span></li>`;
+  }).join("") + (r.spaces.length > 5 ? `<li class="muted small">ほか ${r.spaces.length - 5} 件</li>` : "");
+  $("chat-meta").textContent = `${r.demo ? "デモデータ ・ " : ""}${r.fetched_at} 更新`;
+}
+
 /* ------------------------------------------------------------ カレンダー */
 
 let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -399,7 +426,7 @@ $("sc-form").addEventListener("submit", async (e) => {
 /* ------------------------------------------------------------ 起動 */
 
 document.querySelectorAll("[data-refresh]").forEach((b) => b.addEventListener("click", () => {
-  ({ mail: loadMail, calendar: loadEvents, redmine: loadRedmine })[b.dataset.refresh](true);
+  ({ mail: loadMail, chat: loadChat, calendar: loadEvents, redmine: loadRedmine })[b.dataset.refresh](true);
 }));
 
 function safe(fn) {
@@ -409,6 +436,7 @@ function safe(fn) {
 function loadAll() {
   safe(loadAttendance)();
   safe(loadMail)();
+  safe(loadChat)();
   safe(loadEvents)();
   safe(loadTasks)();
   safe(loadRedmine)();
@@ -422,5 +450,6 @@ setInterval(safe(loadAttendance), 60 * 1000);
 setInterval(renderEvents, 60 * 1000);
 // サーバー側でキャッシュしているため、ここでは頻繁に問い合わせても外部へのアクセスは増えない
 setInterval(safe(loadMail), 60 * 1000);
+setInterval(safe(loadChat), 60 * 1000);
 setInterval(safe(loadEvents), 60 * 1000);
 setInterval(safe(loadRedmine), 60 * 1000);

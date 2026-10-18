@@ -14,7 +14,8 @@
   "google": {
     "client_secret": "credentials.json",
     "token": "data/google_token.json",
-    "calendar_ids": ["primary"]
+    "calendar_ids": ["primary"],
+    "chat_max_spaces": 50
   },
 
   "mail": {
@@ -30,6 +31,11 @@
     "outlook": {
       "folder": "inbox"
     }
+  },
+
+  "chat": {
+    "provider": "google",
+    "refresh_seconds": 120
   },
 
   "calendar": {

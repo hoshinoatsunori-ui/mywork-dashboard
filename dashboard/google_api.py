@@ -4,7 +4,9 @@
 トークンを data/google_token.json に保存する（以後は自動で更新）。
 """
 
+import json
 import os
+import re
 import threading
 from datetime import date, datetime, time, timedelta
 
@@ -13,6 +15,16 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/calendar.readonly",
 ]
+CHAT_SCOPES = [
+    "https://www.googleapis.com/auth/chat.spaces.readonly",
+    "https://www.googleapis.com/auth/chat.messages.readonly",
+    "https://www.googleapis.com/auth/chat.users.readstate.readonly",
+]
+
+
+def scopes(cfg):
+    """Google Chat を使う設定のときだけ Chat の権限も要求する。"""
+    return SCOPES + (CHAT_SCOPES if cfg.get("use_chat") else [])
 
 _lock = threading.Lock()
 
@@ -33,7 +45,7 @@ def login(cfg, base):
             f"{secret} がありません。Google Cloud で作成した OAuth クライアント"
             "（デスクトップ アプリ）の JSON を置いてください（README 参照）"
         )
-    flow = InstalledAppFlow.from_client_secrets_file(secret, SCOPES)
+    flow = InstalledAppFlow.from_client_secrets_file(secret, scopes(cfg))
     creds = flow.run_local_server(port=0)
     os.makedirs(os.path.dirname(token), exist_ok=True)
     with open(token, "w", encoding="utf-8") as f:
@@ -41,7 +53,13 @@ def login(cfg, base):
 
 
 def has_token(cfg, base):
-    return os.path.exists(_paths(cfg, base)[1])
+    """必要な権限をすべて含むトークンが保存済みか。"""
+    _, token = _paths(cfg, base)
+    if not os.path.exists(token):
+        return False
+    with open(token, encoding="utf-8") as f:
+        granted = set(json.load(f).get("scopes") or [])
+    return set(scopes(cfg)) <= granted
 
 
 def _credentials(cfg, base):
@@ -49,10 +67,13 @@ def _credentials(cfg, base):
     from google.oauth2.credentials import Credentials
 
     _, token = _paths(cfg, base)
-    if not os.path.exists(token):
-        raise RuntimeError("Google にログインしていません。`python app.py --google-login` を実行してください")
+    if not has_token(cfg, base):
+        raise RuntimeError(
+            "Google にログインしていないか、権限が不足しています。"
+            "`python app.py --google-login` を実行してください"
+        )
     with _lock:
-        creds = Credentials.from_authorized_user_file(token, SCOPES)
+        creds = Credentials.from_authorized_user_file(token, scopes(cfg))
         if not creds.valid:
             if creds.expired and creds.refresh_token:
                 creds.refresh(Request())
@@ -139,3 +160,65 @@ def _local(iso):
         return None
     dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     return dt.astimezone().strftime("%Y-%m-%dT%H:%M")
+
+
+# ---------------------------------------------------------------- Chat
+
+def chat_unread(cfg, base, service=None, max_count=99):
+    """スペース（DM・グループ・スペース）ごとの未読メッセージ数。
+
+    自分の既読位置（spaceReadState.lastReadTime）より後に作成されたメッセージを数える。
+    1 スペースあたり max_count 件まで数え、それを超える場合は over=True にする。
+    """
+    chat = service or _service("chat", "v1", cfg, base)
+    spaces = []
+    page = None
+    while True:
+        res = chat.spaces().list(pageSize=1000, pageToken=page).execute()
+        spaces += res.get("spaces", [])
+        page = res.get("nextPageToken")
+        if not page:
+            break
+
+    # 最近動きのあったスペースから調べる
+    spaces.sort(key=lambda sp: sp.get("lastActiveTime", ""), reverse=True)
+    out = []
+    for sp in spaces[: int(cfg.get("chat_max_spaces", 50))]:
+        name = sp["name"]  # "spaces/XXXX"
+        state = chat.users().spaces().getSpaceReadState(
+            name=f"users/me/{name}/spaceReadState").execute()
+        last_read = state.get("lastReadTime")
+        last_active = sp.get("lastActiveTime")
+        if last_read and last_active and _ts(last_active) <= _ts(last_read):
+            continue  # 既読以降に動きなし
+        flt = f'createTime > "{last_read}"' if last_read else None
+        res = chat.spaces().messages().list(
+            parent=name, filter=flt, pageSize=max_count + 1,
+            fields="messages/name").execute()
+        n = len(res.get("messages", []))
+        if n:
+            out.append({
+                "name": _space_label(sp),
+                "type": sp.get("spaceType", ""),
+                "unread": min(n, max_count),
+                "over": n > max_count,
+                "url": sp.get("spaceUri") or "https://chat.google.com/",
+            })
+    out.sort(key=lambda x: -x["unread"])
+    return {"spaces": out, "total": sum(x["unread"] for x in out),
+            "over": any(x["over"] for x in out)}
+
+
+def _space_label(sp):
+    if sp.get("displayName"):
+        return sp["displayName"]
+    # DM・名前のないグループには displayName が無い
+    return "ダイレクト メッセージ" if sp.get("spaceType") == "DIRECT_MESSAGE" else "グループ チャット"
+
+
+def _ts(iso):
+    # API の時刻は小数秒が最大 9 桁になり得るため、6 桁（マイクロ秒）までに切り詰める
+    m = re.match(r"(.*T\d\d:\d\d:\d\d)(\.\d+)?(.*)", iso)
+    frac = (m.group(2) or "")[:7]
+    tz = m.group(3).replace("Z", "+00:00")
+    return datetime.fromisoformat(m.group(1) + frac + tz)
