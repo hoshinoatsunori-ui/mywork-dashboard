@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Work Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="grid">
+
+    <!-- 時計・勤怠 -->
+    <section class="card clock-card">
+      <div class="clock">
+        <div id="clock-date" class="clock-date"></div>
+        <div id="clock-time" class="clock-time">--:--</div>
+      </div>
+      <div class="att">
+        <div class="att-row">
+          <label>出勤 <input type="time" id="att-in"></label>
+          <label>退勤 <input type="time" id="att-out"></label>
+          <button id="btn-clock" class="btn primary">退勤する</button>
+        </div>
+        <div class="att-stats">
+          <div class="stat">
+            <span class="stat-label">本日の勤務</span>
+            <span id="att-worked" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">本日の残業</span>
+            <span id="att-ot" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">今月の残業</span>
+            <span id="att-month" class="stat-value">-</span>
+          </div>
+        </div>
+        <div class="progress"><div id="att-bar" class="progress-bar"></div><div id="att-bar-ot" class="progress-bar ot"></div></div>
+        <div id="att-note" class="muted small"></div>
+      </div>
+    </section>
+
+    <!-- メール -->
+    <section class="card mail-card">
+      <header class="card-head">
+        <h2>メール</h2>
+        <button class="icon-btn" data-refresh="mail" title="更新">↻</button>
+      </header>
+      <div class="mail-stats">
+        <div class="stat">
+          <span class="stat-label">今日の受信</span>
+          <span id="mail-today" class="stat-value big">-</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">未読</span>
+          <span id="mail-unread" class="stat-value big accent">-</span>
+        </div>
+      </div>
+      <div id="mail-meta" class="muted small"></div>
+    </section>
+
+    <!-- カレンダー -->
+    <section class="card cal-card">
+      <header class="card-head">
+        <h2>カレンダー</h2>
+        <div class="cal-nav">
+          <button class="icon-btn" id="cal-prev" title="前の月">‹</button>
+          <span id="cal-title"></span>
+          <button class="icon-btn" id="cal-next" title="次の月">›</button>
+        </div>
+      </header>
+      <table class="month" id="cal-grid"></table>
+    </section>
+
+    <!-- 今日の予定 -->
+    <section class="card events-card">
+      <header class="card-head">
+        <h2>今日の予定</h2>
+        <button class="icon-btn" data-refresh="calendar" title="更新">↻</button>
+      </header>
+      <ul id="events" class="list"></ul>
+      <div id="events-meta" class="muted small"></div>
+    </section>
+
+    <!-- タスク -->
+    <section class="card tasks-card">
+      <header class="card-head"><h2>今日のタスク</h2></header>
+      <form id="task-form" class="inline-form">
+        <input id="task-title" placeholder="タスクを追加" required>
+        <input id="task-due" type="date" title="期限">
+        <button class="btn">追加</button>
+      </form>
+      <ul id="tasks" class="list"></ul>
+    </section>
+
+    <!-- Redmine -->
+    <section class="card redmine-card">
+      <header class="card-head">
+        <h2>Redmine 期限が近いチケット</h2>
+        <button class="icon-btn" data-refresh="redmine" title="更新">↻</button>
+      </header>
+      <ul id="issues" class="list"></ul>
+      <div id="issues-meta" class="muted small"></div>
+    </section>
+
+    <!-- ショートカット -->
+    <section class="card shortcuts-card">
+      <header class="card-head">
+        <h2>ショートカット</h2>
+        <button class="icon-btn" id="sc-edit" title="編集">✎</button>
+      </header>
+      <div id="shortcuts" class="shortcuts"></div>
+      <form id="sc-form" class="inline-form sc-form" hidden>
+        <select id="sc-type">
+          <option value="folder">フォルダ</option>
+          <option value="app">アプリ / ファイル</option>
+          <option value="url">URL</option>
+        </select>
+        <input id="sc-name" placeholder="表示名" required>
+        <input id="sc-target" placeholder="パス または URL（例: C:\Users\me\Documents）" required>
+        <input id="sc-args" placeholder="引数（任意）">
+        <button class="btn">登録</button>
+      </form>
+    </section>
+
+  </main>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

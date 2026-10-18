@@ -1,0 +1,6 @@
+flask>=3.0
+# カレンダーを ICS URL から読む場合
+icalendar>=5.0
+recurring-ical-events>=2.0
+# Windows で Outlook のメール/予定を読む場合
+pywin32>=306; sys_platform == "win32"
