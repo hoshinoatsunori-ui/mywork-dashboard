@@ -1,7 +1,14 @@
 /**
- * 仕事用ダッシュボード（Google Apps Script ウェブアプリ）。
- * 画面側からは google.script.run で下の関数を呼ぶ。
- * google.script.run は Date を受け渡しできないため、日時はすべて文字列で返す。
+ * ファイル名: Code.gs
+ * 概要: 仕事用ダッシュボード（Google Apps Script ウェブアプリ）のサーバー側処理。
+ *       画面側からは google.script.run で下の関数を呼ぶ。
+ *       google.script.run は Date を受け渡しできないため、日時はすべて文字列で返す。
+ *
+ * 更新履歴:
+ *   2026-10-18  新規作成（Python 版サーバーから移行）。勤怠・メール・予定・チャット・Redmine・
+ *               タスク・ショートカットの取得／保存処理
+ *   2026-10-20  タスクを Google ToDo リスト（Tasks 拡張サービス）から取得・完了・追加するよう変更
+ *   2026-10-20  ファイルヘッダに更新履歴を追加
  */
 
 function doGet() {
