@@ -7,6 +7,7 @@
  *   2026-10-18  新規作成（勤務時間 9:00〜17:30、メール、カレンダー、チャット、Redmine の設定）
  *   2026-10-20  タスク（Google ToDo リスト）の設定を追加
  *   2026-10-20  ファイルヘッダに更新履歴を追加
+ *   2026-10-20  メールの設定を新着メールの概要表示用（検索条件・表示件数・本文の文字数）に変更
  */
 const CONFIG = {
   work: {
@@ -17,8 +18,10 @@ const CONFIG = {
   },
 
   mail: {
-    cacheSeconds: 300,
-    maxThreads: 500, // 数えるスレッドの上限（多すぎると実行時間の上限に達するため）
+    cacheSeconds: 120,
+    query: 'in:inbox', // 表示するメールの検索条件（Gmail の検索と同じ書き方。例: 'in:inbox is:unread'）
+    maxItems: 10, // 表示する件数（スレッド単位）
+    snippetLength: 100, // 本文の冒頭を何文字表示するか
   },
 
   calendar: {

@@ -9,6 +9,7 @@
  *               タスク・ショートカットの取得／保存処理
  *   2026-10-20  タスクを Google ToDo リスト（Tasks 拡張サービス）から取得・完了・追加するよう変更
  *   2026-10-20  ファイルヘッダに更新履歴を追加
+ *   2026-10-20  メールを件数表示から新着メールの概要（差出人・件名・本文の冒頭）表示に変更
  */
 
 function doGet() {
@@ -193,47 +194,55 @@ function updateAttendance(action, times) {
 // ---------------------------------------------------------------- メール
 
 /**
- * 今日の受信数: 今日 0 時以降に届いたメール（自分の送信・下書き・チャットを除く、アーカイブ済みを含む）
- * 未読数: 受信トレイの未読メール数（スレッド数ではなくメール数）
+ * 新着メールの概要。CONFIG.mail.query に一致するスレッドを新しい順に maxItems 件返す。
+ * 各スレッドは最新のメールの差出人・件名・本文の冒頭・日時を使う（Gmail の一覧と同じ見え方）。
  */
 function getMail(force) {
   return safe_(function () {
     return cached_('mail', CONFIG.mail.cacheSeconds, force, function () {
-      const midnight = startOfToday_();
-      const me = Session.getEffectiveUser().getEmail().toLowerCase();
-      // Gmail の after:YYYY/MM/DD は PST 基準のため、UNIX 秒で指定する
-      const q = 'after:' + Math.floor(midnight.getTime() / 1000) + ' -in:sent -in:drafts -in:chats';
-      const today = countMessages_(q, function (m) {
-        return m.getDate() >= midnight && !m.isDraft() && m.getFrom().toLowerCase().indexOf(me) < 0;
+      const c = CONFIG.mail;
+      const threads = GmailApp.search(c.query, 0, c.maxItems);
+      const today = todayISO_();
+      const msgsList = threads.length ? GmailApp.getMessagesForThreads(threads) : [];
+      const items = threads.map(function (th, i) {
+        const msgs = msgsList[i];
+        const m = msgs[msgs.length - 1];
+        const date = m.getDate();
+        return {
+          from: senderName_(m.getFrom()),
+          from_address: m.getFrom(),
+          subject: th.getFirstMessageSubject() || '(件名なし)',
+          snippet: snippet_(m.getPlainBody(), c.snippetLength),
+          time: todayISO_(date) === today ? fmt_(date, 'HH:mm') : fmt_(date, 'M/d'),
+          datetime: fmt_(date, 'yyyy-MM-dd HH:mm'),
+          count: msgs.length,
+          unread: th.isUnread(),
+          starred: th.hasStarredMessages(),
+          important: th.isImportant(),
+          url: th.getPermalink(),
+        };
       });
-      const unread = countMessages_('in:inbox is:unread', function (m) {
-        return m.isUnread() && m.isInInbox();
-      });
-      return {
-        received_today: today.count,
-        unread: unread.count,
-        over: today.over || unread.over,
-      };
+      return { items: items };
     });
   });
 }
 
-function countMessages_(query, pred) {
-  const page = 100;
-  let count = 0;
-  let start = 0;
-  while (start < CONFIG.mail.maxThreads) {
-    const threads = GmailApp.search(query, start, page);
-    if (!threads.length) return { count: count, over: false };
-    GmailApp.getMessagesForThreads(threads).forEach(function (msgs) {
-      msgs.forEach(function (m) {
-        if (pred(m)) count++;
-      });
-    });
-    if (threads.length < page) return { count: count, over: false };
-    start += page;
-  }
-  return { count: count, over: true };
+/** "山田 太郎 <taro@example.com>" → "山田 太郎"（名前が無ければアドレス） */
+function senderName_(from) {
+  const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(from || '');
+  if (!m) return from || '';
+  return m[1] || m[2];
+}
+
+/** 本文の冒頭。引用行（> で始まる行）を除き、空白をまとめて len 文字に切り詰める。 */
+function snippet_(body, len) {
+  const text = String(body || '')
+    .split(/\r?\n/)
+    .filter(function (line) { return !/^\s*>/.test(line); })
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > len ? text.slice(0, len) + '…' : text;
 }
 
 // ---------------------------------------------------------------- カレンダー

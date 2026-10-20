@@ -10,6 +10,7 @@
                 フォルダのパスのコピーに変更）
     2026-10-20  Google ToDo リストのタスク表示に対応（期限なし、リンク、エラー表示、定期更新）
     2026-10-20  ファイルヘッダに更新履歴を追加
+    2026-10-20  メールを新着メールの一覧（差出人・件名・本文の冒頭・未読表示）に変更
 -->
 <script>
 "use strict";
@@ -153,14 +154,28 @@ for (const [id, key] of [["att-in", "in"], ["att-out", "out"]]) {
 async function loadMail(refresh = false) {
   const r = await api("getMail", refresh);
   if (!r.ok) {
-    $("mail-today").textContent = "-";
-    $("mail-unread").textContent = "-";
+    $("mail-list").innerHTML = "";
+    $("mail-unread").hidden = true;
     $("mail-meta").innerHTML = `<span class="error">${esc(r.error)}</span>`;
     return;
   }
-  $("mail-today").textContent = r.received_today + (r.over ? "+" : "");
-  $("mail-unread").textContent = r.unread + (r.over ? "+" : "");
-  $("mail-meta").textContent = `${r.demo ? "デモデータ ・ " : ""}${r.fetched_at} 更新`;
+  const unread = r.items.filter((m) => m.unread).length;
+  $("mail-unread").hidden = !unread;
+  $("mail-unread").textContent = `未読 ${unread}`;
+  $("mail-list").innerHTML = r.items.map((m) => `
+    <li class="${m.unread ? "unread" : ""}">
+      <a href="${esc(m.url)}" target="_blank" rel="noopener" title="${esc(m.from_address)}\n${esc(m.datetime)}">
+        <div class="mail-row">
+          <span class="mail-from">${esc(m.from)}</span>
+          ${m.count > 1 ? `<span class="mail-count">${m.count}</span>` : ""}
+          ${m.starred ? `<span class="mail-flag" title="スター付き">★</span>` : ""}
+          <span class="mail-time">${esc(m.time)}</span>
+        </div>
+        <div class="mail-subject">${esc(m.subject)}</div>
+        ${m.snippet ? `<div class="mail-snippet">${esc(m.snippet)}</div>` : ""}
+      </a>
+    </li>`).join("") || `<li class="empty" style="padding: 8px 16px">新着メールはありません</li>`;
+  $("mail-meta").textContent = `${r.fetched_at} 更新`;
 }
 
 /* ------------------------------------------------------------ チャット */
@@ -494,7 +509,7 @@ loadAll();
 setInterval(safe(loadAttendance), 60 * 1000);
 setInterval(renderEvents, 60 * 1000);
 // サーバー側（CacheService）でキャッシュしているため、外部へのアクセスは各キャッシュ時間に 1 回程度
-setInterval(safe(loadMail), 5 * 60 * 1000);
+setInterval(safe(loadMail), 2 * 60 * 1000);
 setInterval(safe(loadChat), 2 * 60 * 1000);
 setInterval(safe(loadEvents), 5 * 60 * 1000);
 setInterval(safe(loadRedmine), 5 * 60 * 1000);

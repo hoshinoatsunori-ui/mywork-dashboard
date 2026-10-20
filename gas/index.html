@@ -10,6 +10,7 @@
                 フォルダに変更）
     2026-10-20  今日のタスクに更新ボタンとエラー表示欄を追加
     2026-10-20  ファイルヘッダに更新履歴を追加
+    2026-10-20  メールのカードを件数表示から新着メールの一覧に変更
 -->
 <html lang="ja">
 <head>
@@ -54,20 +55,14 @@
     <!-- メール -->
     <section class="card mail-card">
       <header class="card-head">
-        <h2>メール</h2>
+        <h2>新着メール <span id="mail-unread" class="badge" hidden></span></h2>
         <button class="icon-btn" data-refresh="mail" title="更新">↻</button>
       </header>
-      <div class="mail-stats">
-        <div class="stat">
-          <span class="stat-label">今日の受信</span>
-          <span id="mail-today" class="stat-value big">-</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">未読</span>
-          <span id="mail-unread" class="stat-value big accent">-</span>
-        </div>
+      <ul id="mail-list" class="list mail-list"></ul>
+      <div class="card-foot">
+        <span id="mail-meta" class="muted small"></span>
+        <a class="small" href="https://mail.google.com/" target="_blank" rel="noopener">Gmail を開く</a>
       </div>
-      <div id="mail-meta" class="muted small"></div>
     </section>
 
     <!-- チャット -->

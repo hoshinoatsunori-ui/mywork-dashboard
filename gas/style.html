@@ -8,6 +8,7 @@
     2026-10-18  GAS 版に移行（<style> タグで囲む形に変更、リンク形式のショートカットに対応）
     2026-10-20  タスク名のリンクのスタイルを追加
     2026-10-20  ファイルヘッダに更新履歴を追加
+    2026-10-20  新着メール一覧のスタイルを追加、全体のレイアウトを grid-template-areas で再構成
 -->
 <style>
 :root {
@@ -50,25 +51,51 @@ body {
   font-size: 14px;
 }
 
+/*
+ * レイアウト（grid-template-areas）
+ * 広い画面: 1 段目に時計・今日の予定・カレンダー、2〜3 段目に新着メール（縦長）とタスク・チャット、
+ *           4 段目に Redmine とショートカット
+ * 中くらい: 2 列。狭い画面（スマホ）: 1 列で、今日やることに関係する順に並べる
+ */
 .grid {
   display: grid;
   gap: 16px;
   padding: 16px;
-  max-width: 1400px;
+  max-width: 1440px;
   margin: 0 auto;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-areas:
+    "clock clock clock clock clock clock events events events cal cal cal"
+    "mail mail mail mail mail mail mail tasks tasks tasks tasks tasks"
+    "mail mail mail mail mail mail mail chat chat chat chat chat"
+    "redmine redmine redmine redmine redmine redmine redmine sc sc sc sc sc";
 }
-.clock-card     { grid-column: span 6; }
-.mail-card      { grid-column: span 3; }
-.chat-card      { grid-column: span 3; }
-.cal-card       { grid-column: span 4; }
-.events-card    { grid-column: span 4; }
-.tasks-card     { grid-column: span 4; }
-.redmine-card   { grid-column: span 7; }
-.shortcuts-card { grid-column: span 5; }
+.clock-card     { grid-area: clock; }
+.events-card    { grid-area: events; }
+.cal-card       { grid-area: cal; }
+.mail-card      { grid-area: mail; }
+.tasks-card     { grid-area: tasks; }
+.chat-card      { grid-area: chat; }
+.redmine-card   { grid-area: redmine; }
+.shortcuts-card { grid-area: sc; }
 
-@media (max-width: 1000px) {
-  .grid > .card { grid-column: span 12; }
+@media (max-width: 1199px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "clock clock"
+      "events cal"
+      "mail tasks"
+      "mail chat"
+      "redmine redmine"
+      "sc sc";
+  }
+}
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "clock" "events" "tasks" "mail" "chat" "cal" "redmine" "sc";
+  }
 }
 
 .card {
@@ -135,7 +162,7 @@ input, select {
 .att { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 12px; }
 .att-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .att-row label { color: var(--muted); display: flex; gap: 6px; align-items: center; }
-.att-stats, .mail-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.att-stats { display: flex; gap: 24px; flex-wrap: wrap; }
 .stat { display: flex; flex-direction: column; }
 .stat-label { color: var(--muted); font-size: 12px; }
 .stat-value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -152,6 +179,49 @@ input, select {
 }
 .progress-bar { background: var(--accent); width: 0; transition: width .5s; }
 .progress-bar.ot { background: var(--warn); }
+
+/* 新着メール */
+.mail-card { display: flex; flex-direction: column; }
+/* 一覧はカードの高さ（右側のタスク・チャットの高さ）に合わせ、はみ出す分はスクロール */
+.list.mail-list { flex: 1 1 0; min-height: 360px; overflow-y: auto; margin: 0 -16px; }
+.mail-list li { padding: 0; }
+.mail-list a {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+.mail-list a:hover { background: var(--accent-soft); }
+.mail-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.mail-from { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-count { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+.mail-time { margin-left: auto; color: var(--muted); font-size: 12px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.mail-subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.mail-snippet {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mail-list li.unread .mail-from,
+.mail-list li.unread .mail-subject { font-weight: 700; }
+.mail-list li.unread .mail-time { color: var(--accent); font-weight: 600; }
+.mail-list li.unread a { box-shadow: inset 3px 0 0 var(--accent); }
+.mail-flag { color: var(--warn); flex-shrink: 0; }
+.card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.card-foot a { color: var(--accent); text-decoration: none; }
+h2 .badge { vertical-align: 2px; margin-left: 4px; }
 
 /* カレンダー */
 .cal-nav { display: flex; align-items: center; gap: 4px; }
