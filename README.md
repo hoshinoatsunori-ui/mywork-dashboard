@@ -8,7 +8,7 @@ PC へのインストールや Google Cloud の設定は不要で、ブラウザ
 | --- | --- | --- |
 | 時計・残業時間 | 現在時刻、出退勤時刻、本日の勤務・残業時間、今月の残業合計 | （GAS 内に保存） |
 | カレンダー | 月表示カレンダー（タスク期限日に印）、今日の予定 | CalendarApp |
-| タスク | 今日のタスク（期限切れを含む）の追加・完了・削除 | （GAS 内に保存） |
+| タスク | Google ToDo リストの今日のタスク（期限切れ・期限なしを含む）の表示・完了・追加 | Tasks 拡張サービス |
 | メール | 今日の受信メール数、未読メール数 | GmailApp |
 | チャット | Google Chat の未読メッセージ数（合計とスペースごと） | Chat 拡張サービス |
 | Redmine | 自分が担当の未完了チケットのうち、期日が近いもの・期限切れのもの | UrlFetchApp |
@@ -61,6 +61,22 @@ PC へのインストールや Google Cloud の設定は不要で、ブラウザ
 - 今月の残業が 30 時間以上で黄色、45 時間（36 協定の原則的な月の上限）以上で赤色になります
 - 休憩時間が 60 分でない場合は `breakMinutes` を変更してください
 
+### タスク（Google ToDo リスト）
+
+Google カレンダーや Gmail の横に表示される「Google ToDo リスト」のタスクを表示します。
+
+- 表示するもの: 期限が今日以前の未完了タスク（期限切れは赤いラベル）、期限なしの未完了タスク、今日完了したタスク
+- 明日以降が期限のタスクは件数だけ表示し、カレンダーの日付に印を付けます
+- チェックを付けると Google ToDo でも完了になります（外すと未完了に戻ります）
+- 入力欄から追加したタスクは、既定のリスト（`tasks.addToList`）に登録されます
+- 削除は誤操作を防ぐため、ダッシュボードからはできません。Google ToDo 側で削除してください
+- `Config.gs` の `tasks` で設定できます
+  - `lists`: 表示するリスト名（空ならすべてのリスト）
+  - `showNoDue`: 期限なしのタスクを表示するか
+  - `provider: 'local'`: Google ToDo を使わず、ダッシュボード内にタスクを保存する
+- タイトルが空のタスクは表示しません。タスク名をクリックすると Google ToDo を開きます
+  （API がリンクを返した場合のみ）
+
 ### メール（GmailApp）
 
 - 今日の受信: 今日 0 時以降に届いたメールの数。自分が送ったメール・下書き・チャットは除き、アーカイブ済みは含みます
@@ -111,12 +127,12 @@ Google のドキュメントでは Chat API の構成（Google Cloud での設�
 
 ## データの保存先・権限
 
-- 勤怠・タスク・ショートカットは、スクリプトの「ユーザー プロパティ」（Google アカウント内）に保存されます。
-  完了から 30 日たったタスクは自動で削除します
+- 勤怠・ショートカット（`tasks.provider: 'local'` のときはタスクも）は、スクリプトの「ユーザー プロパティ」（Google アカウント内）に保存されます
 - 要求する権限（`appsscript.json` の `oauthScopes`）
   - `https://mail.google.com/`: GmailApp でメールを検索・既読状態を確認するため。
     GmailApp はこの権限を必要とします（このダッシュボードはメールの送信・削除・変更はしません）
   - `calendar.readonly`: 予定の読み取り
+  - `tasks`: Google ToDo のタスクの読み取り・完了・追加
   - `script.external_request`: Redmine への接続
   - `userinfo.email`: 自分が送ったメールを「今日の受信」から除くため、自分のアドレスを取得
   - `chat.spaces.readonly`, `chat.messages.readonly`, `chat.users.readstate.readonly`: チャットの未読数
@@ -125,7 +141,7 @@ Google のドキュメントでは Chat API の構成（Google Cloud での設�
 
 ## 動作確認の範囲
 
-- GAS のサービス（GmailApp, CalendarApp, Chat, UrlFetchApp, PropertiesService, CacheService, google.script.run）を
+- GAS のサービス（GmailApp, CalendarApp, Tasks, Chat, UrlFetchApp, PropertiesService, CacheService, google.script.run）を
   模擬したテストで、集計・計算・画面表示を確認済み
 - 実際の GAS 環境・Google アカウントでのデプロイと動作は、この環境では確認できていません
 

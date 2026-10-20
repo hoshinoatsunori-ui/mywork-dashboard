@@ -4,12 +4,14 @@
   "exceptionLogging": "STACKDRIVER",
   "dependencies": {
     "enabledAdvancedServices": [
-      { "userSymbol": "Chat", "serviceId": "chat", "version": "v1" }
+      { "userSymbol": "Chat", "serviceId": "chat", "version": "v1" },
+      { "userSymbol": "Tasks", "serviceId": "tasks", "version": "v1" }
     ]
   },
   "oauthScopes": [
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/script.external_request",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/chat.spaces.readonly",

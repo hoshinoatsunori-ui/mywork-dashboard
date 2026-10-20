@@ -189,7 +189,7 @@ function renderCalendar() {
   const first = new Date(y, m, 1);
   const start = new Date(y, m, 1 - first.getDay());
   const today = todayISO();
-  const dueDays = new Set(tasks.filter((t) => !t.done).map((t) => t.due));
+  const dueDays = new Set(tasks.filter((t) => !t.done && t.due).map((t) => t.due));
 
   let html = "<tr>" + WEEK.map((w, i) =>
     `<th class="${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${w}</th>`).join("") + "</tr>";
@@ -262,25 +262,35 @@ function renderEvents() {
 /* ------------------------------------------------------------ タスク */
 
 async function loadTasks() {
-  tasks = await api("getTasks");
+  try {
+    tasks = await api("getTasks");
+    $("tasks-meta").textContent = "";
+  } catch (err) {
+    $("tasks-meta").innerHTML = `<span class="error">${esc(err.message)}</span>`;
+  }
   renderTasks();
   renderCalendar();
 }
 
 function renderTasks() {
   const today = todayISO();
-  // 未完了で期限が今日以前のもの + 今日完了したもの
+  // 未完了で期限が今日以前（期限なしを含む）のもの + 今日完了したもの
   const shown = tasks
-    .filter((t) => (!t.done && t.due <= today) || (t.done && t.done_on === today))
-    .sort((a, b) => a.done - b.done || a.due.localeCompare(b.due));
-  const upcoming = tasks.filter((t) => !t.done && t.due > today).length;
+    .filter((t) => (!t.done && (!t.due || t.due <= today)) || (t.done && t.done_on === today))
+    .sort((a, b) => a.done - b.done || !a.due - !b.due || (a.due || "").localeCompare(b.due || ""));
+  const upcoming = tasks.filter((t) => !t.done && t.due && t.due > today).length;
 
   let html = shown.map((t) => {
-    const badge = !t.done && t.due < today ? `<span class="badge overdue">期限切れ ${t.due.slice(5)}</span>` : "";
-    return `<li class="${t.done ? "done" : ""}" data-id="${t.id}">
+    const badge = !t.done && t.due && t.due < today
+      ? `<span class="badge overdue">期限切れ ${t.due.slice(5)}</span>`
+      : !t.done && !t.due ? `<span class="badge">期限なし</span>` : "";
+    const title = t.url
+      ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`
+      : esc(t.title);
+    return `<li class="${t.done ? "done" : ""}" data-id="${esc(t.id)}" title="${esc(t.list || "")}">
       <input type="checkbox" ${t.done ? "checked" : ""}>
-      <span class="grow title">${esc(t.title)}</span>${badge}
-      <button class="icon-btn del" title="削除">✕</button>
+      <span class="grow title">${title}</span>${badge}
+      ${t.deletable ? `<button class="icon-btn del" title="削除">✕</button>` : ""}
     </li>`;
   }).join("");
   if (!shown.length) html = `<li class="empty">今日のタスクはありません</li>`;
@@ -291,8 +301,12 @@ function renderTasks() {
 $("task-due").value = todayISO();
 $("task-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  tasks = await api("addTask", $("task-title").value, $("task-due").value);
-  $("task-title").value = "";
+  try {
+    tasks = await api("addTask", $("task-title").value, $("task-due").value);
+    $("task-title").value = "";
+  } catch (err) {
+    toast(err.message);
+  }
   renderTasks();
   renderCalendar();
 });
@@ -301,11 +315,16 @@ $("tasks").addEventListener("click", async (e) => {
   const li = e.target.closest("li[data-id]");
   if (!li) return;
   const id = li.dataset.id;
-  if (e.target.matches("input[type=checkbox]")) {
-    tasks = await api("updateTask", id, e.target.checked);
-  } else if (e.target.matches(".del")) {
-    tasks = await api("deleteTask", id);
-  } else return;
+  try {
+    if (e.target.matches("input[type=checkbox]")) {
+      e.target.disabled = true;
+      tasks = await api("updateTask", id, e.target.checked);
+    } else if (e.target.matches(".del")) {
+      tasks = await api("deleteTask", id);
+    } else return;
+  } catch (err) {
+    toast(err.message);
+  }
   renderTasks();
   renderCalendar();
 });
@@ -439,7 +458,7 @@ $("sc-form").addEventListener("submit", async (e) => {
 /* ------------------------------------------------------------ 起動 */
 
 document.querySelectorAll("[data-refresh]").forEach((b) => b.addEventListener("click", () => {
-  ({ mail: loadMail, chat: loadChat, calendar: loadEvents, redmine: loadRedmine })[b.dataset.refresh](true);
+  ({ mail: loadMail, chat: loadChat, calendar: loadEvents, tasks: loadTasks, redmine: loadRedmine })[b.dataset.refresh](true);
 }));
 
 function safe(fn) {
@@ -466,4 +485,5 @@ setInterval(safe(loadMail), 5 * 60 * 1000);
 setInterval(safe(loadChat), 2 * 60 * 1000);
 setInterval(safe(loadEvents), 5 * 60 * 1000);
 setInterval(safe(loadRedmine), 5 * 60 * 1000);
+setInterval(safe(loadTasks), 5 * 60 * 1000);
 </script>

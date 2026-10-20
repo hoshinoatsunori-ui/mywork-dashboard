@@ -19,6 +19,13 @@ const CONFIG = {
     calendarIds: [], // 空なら自分のメインカレンダー。追加するならカレンダー ID を並べる
   },
 
+  tasks: {
+    provider: 'google', // 'google'（Google ToDo リスト）または 'local'（ダッシュボード内に保存）
+    lists: [], // 表示する Google ToDo のリスト名。空ならすべてのリスト
+    addToList: '@default', // 追加先のリスト ID（'@default' は既定のリスト）
+    showNoDue: true, // 期限なしの未完了タスクも表示する
+  },
+
   chat: {
     enabled: true,
     cacheSeconds: 120,

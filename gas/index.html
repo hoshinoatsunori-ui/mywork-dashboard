@@ -97,13 +97,17 @@
 
     <!-- タスク -->
     <section class="card tasks-card">
-      <header class="card-head"><h2>今日のタスク</h2></header>
+      <header class="card-head">
+        <h2>今日のタスク</h2>
+        <button class="icon-btn" data-refresh="tasks" title="更新">↻</button>
+      </header>
       <form id="task-form" class="inline-form">
         <input id="task-title" placeholder="タスクを追加" required>
         <input id="task-due" type="date" title="期限">
         <button class="btn">追加</button>
       </form>
       <ul id="tasks" class="list"></ul>
+      <div id="tasks-meta" class="muted small"></div>
     </section>
 
     <!-- Redmine -->

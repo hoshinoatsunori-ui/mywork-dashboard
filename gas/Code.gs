@@ -367,39 +367,121 @@ function getRedmine(force) {
 
 // ---------------------------------------------------------------- タスク
 
+/**
+ * タスク一覧。CONFIG.tasks.provider が 'google' なら Google ToDo リスト（Tasks 拡張サービス）、
+ * 'local' ならダッシュボード内に保存したタスク。
+ * 返す形: { id, title, due ('YYYY-MM-DD' か null), done, done_on, url, list, deletable }
+ * 画面側で「期限が今日以前の未完了 + 今日完了したもの」を表示する。
+ */
 function getTasks() {
-  return loadJson_('tasks', []);
+  return CONFIG.tasks.provider === 'google' ? googleTasks_() : localTasks_();
 }
 
 function addTask(title, due) {
   title = String(title || '').trim();
   if (!title) throw new Error('タスク名を入力してください');
-  const tasks = getTasks();
-  tasks.push({ id: Utilities.getUuid().slice(0, 12), title: title, due: due || todayISO_(), done: false });
-  return saveTasks_(tasks);
+  due = due || todayISO_();
+  if (CONFIG.tasks.provider === 'google') {
+    // Google ToDo の期限は日付のみ（時刻は無視される）
+    Tasks.Tasks.insert({ title: title, due: due + 'T00:00:00.000Z' }, CONFIG.tasks.addToList || '@default');
+    return getTasks();
+  }
+  const tasks = loadJson_('tasks', []);
+  tasks.push({ id: Utilities.getUuid().slice(0, 12), title: title, due: due, done: false });
+  return saveLocalTasks_(tasks);
 }
 
 function updateTask(id, done) {
-  const tasks = getTasks();
+  if (CONFIG.tasks.provider === 'google') {
+    const ids = splitTaskId_(id);
+    Tasks.Tasks.patch(done ? { status: 'completed' } : { status: 'needsAction', completed: null }, ids.list, ids.task);
+    return getTasks();
+  }
+  const tasks = loadJson_('tasks', []);
   tasks.forEach(function (t) {
     if (t.id === id) {
       t.done = !!done;
       t.done_on = done ? todayISO_() : null;
     }
   });
-  return saveTasks_(tasks);
+  return saveLocalTasks_(tasks);
 }
 
 function deleteTask(id) {
-  return saveTasks_(getTasks().filter(function (t) { return t.id !== id; }));
+  // Google ToDo のタスクはダッシュボードからは削除しない（誤操作防止）
+  if (CONFIG.tasks.provider === 'google') throw new Error('Google ToDo のタスクは Google ToDo 側で削除してください');
+  return saveLocalTasks_(loadJson_('tasks', []).filter(function (t) { return t.id !== id; }));
 }
 
-function saveTasks_(tasks) {
+function localTasks_() {
+  return loadJson_('tasks', []).map(function (t) {
+    return Object.assign({ url: null, list: null, deletable: true }, t);
+  });
+}
+
+function saveLocalTasks_(tasks) {
   // 完了から 30 日たったタスクは削除（プロパティのサイズ上限対策）
   const limit = fmt_(new Date(Date.now() - 30 * 86400000), 'yyyy-MM-dd');
   tasks = tasks.filter(function (t) { return !t.done || !t.done_on || t.done_on >= limit; });
   saveJson_('tasks', tasks);
-  return tasks;
+  return localTasks_();
+}
+
+function googleTasks_() {
+  const midnight = startOfToday_();
+  const out = [];
+  listAll_(function (token) {
+    return Tasks.Tasklists.list({ maxResults: 100, pageToken: token });
+  }).forEach(function (list) {
+    if (CONFIG.tasks.lists.length && CONFIG.tasks.lists.indexOf(list.title) < 0) return;
+    // 未完了のタスク
+    listAll_(function (token) {
+      return Tasks.Tasks.list(list.id, { showCompleted: false, maxResults: 100, pageToken: token });
+    }).forEach(function (t) { out.push(googleTask_(list, t)); });
+    // 今日完了したタスク（完了済みは Google ToDo 上では「非表示」扱いのため showHidden も指定）
+    listAll_(function (token) {
+      return Tasks.Tasks.list(list.id, {
+        showCompleted: true, showHidden: true, completedMin: midnight.toISOString(),
+        maxResults: 100, pageToken: token,
+      });
+    }).forEach(function (t) {
+      if (t.status === 'completed') out.push(googleTask_(list, t));
+    });
+  });
+  return out.filter(function (t) {
+    return t.title && (t.due || t.done || CONFIG.tasks.showNoDue);
+  });
+}
+
+function googleTask_(list, t) {
+  const done = t.status === 'completed';
+  return {
+    id: list.id + ' ' + t.id,
+    title: t.title || '',
+    due: t.due ? t.due.slice(0, 10) : null, // 期限は日付のみ意味を持つ
+    done: done,
+    done_on: done && t.completed ? fmt_(new Date(t.completed), 'yyyy-MM-dd') : null,
+    url: t.webViewLink || null,
+    list: list.title,
+    deletable: false,
+  };
+}
+
+function splitTaskId_(id) {
+  const i = id.indexOf(' ');
+  return { list: id.slice(0, i), task: id.slice(i + 1) };
+}
+
+/** pageToken 形式の API をすべてのページについて呼び、items をつなげて返す。 */
+function listAll_(call) {
+  let items = [];
+  let token;
+  do {
+    const res = call(token);
+    items = items.concat(res.items || []);
+    token = res.nextPageToken;
+  } while (token);
+  return items;
 }
 
 // ---------------------------------------------------------------- ショートカット
