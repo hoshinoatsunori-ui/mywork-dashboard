@@ -8,6 +8,7 @@
  *   2026-10-20  タスク（Google ToDo リスト）の設定を追加
  *   2026-10-20  ファイルヘッダに更新履歴を追加
  *   2026-10-20  メールの設定を新着メールの概要表示用（検索条件・表示件数・本文の文字数）に変更
+ *   2026-10-21  メールの検索条件を受信トレイの「メイン」タブのみ（category:primary）に変更
  */
 const CONFIG = {
   work: {
@@ -19,7 +20,9 @@ const CONFIG = {
 
   mail: {
     cacheSeconds: 120,
-    query: 'in:inbox', // 表示するメールの検索条件（Gmail の検索と同じ書き方。例: 'in:inbox is:unread'）
+    // 表示するメールの検索条件（Gmail の検索と同じ書き方）。category:primary で受信トレイの「メイン」タブのみ
+    // 例: 未読だけなら 'in:inbox category:primary is:unread'
+    query: 'in:inbox category:primary',
     maxItems: 10, // 表示する件数（スレッド単位）
     snippetLength: 100, // 本文の冒頭を何文字表示するか
   },

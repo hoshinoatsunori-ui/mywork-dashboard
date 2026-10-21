@@ -11,6 +11,7 @@
     2026-10-20  今日のタスクに更新ボタンとエラー表示欄を追加
     2026-10-20  ファイルヘッダに更新履歴を追加
     2026-10-20  メールのカードを件数表示から新着メールの一覧に変更
+    2026-10-21  一覧部分に scroll クラスを付与（画面に収める表示でカード内をスクロール）
 -->
 <html lang="ja">
 <head>
@@ -58,7 +59,7 @@
         <h2>新着メール <span id="mail-unread" class="badge" hidden></span></h2>
         <button class="icon-btn" data-refresh="mail" title="更新">↻</button>
       </header>
-      <ul id="mail-list" class="list mail-list"></ul>
+      <ul id="mail-list" class="list mail-list scroll"></ul>
       <div class="card-foot">
         <span id="mail-meta" class="muted small"></span>
         <a class="small" href="https://mail.google.com/" target="_blank" rel="noopener">Gmail を開く</a>
@@ -75,7 +76,7 @@
         <span class="stat-label">未読</span>
         <span id="chat-total" class="stat-value big accent">-</span>
       </div>
-      <ul id="chat-spaces" class="list chat-list"></ul>
+      <ul id="chat-spaces" class="list chat-list scroll"></ul>
       <div id="chat-meta" class="muted small"></div>
     </section>
 
@@ -98,7 +99,7 @@
         <h2>今日の予定</h2>
         <button class="icon-btn" data-refresh="calendar" title="更新">↻</button>
       </header>
-      <ul id="events" class="list"></ul>
+      <ul id="events" class="list scroll"></ul>
       <div id="events-meta" class="muted small"></div>
     </section>
 
@@ -113,7 +114,7 @@
         <input id="task-due" type="date" title="期限">
         <button class="btn">追加</button>
       </form>
-      <ul id="tasks" class="list"></ul>
+      <ul id="tasks" class="list scroll"></ul>
       <div id="tasks-meta" class="muted small"></div>
     </section>
 
@@ -123,7 +124,7 @@
         <h2>Redmine 期限が近いチケット</h2>
         <button class="icon-btn" data-refresh="redmine" title="更新">↻</button>
       </header>
-      <ul id="issues" class="list"></ul>
+      <ul id="issues" class="list scroll"></ul>
       <div id="issues-meta" class="muted small"></div>
     </section>
 
@@ -133,7 +134,7 @@
         <h2>ショートカット</h2>
         <button class="icon-btn" id="sc-edit" title="編集">✎</button>
       </header>
-      <div id="shortcuts" class="shortcuts"></div>
+      <div id="shortcuts" class="shortcuts scroll"></div>
       <form id="sc-form" class="inline-form sc-form" hidden>
         <select id="sc-type">
           <option value="url">URL</option>

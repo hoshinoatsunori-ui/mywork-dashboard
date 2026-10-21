@@ -9,6 +9,7 @@
     2026-10-20  タスク名のリンクのスタイルを追加
     2026-10-20  ファイルヘッダに更新履歴を追加
     2026-10-20  新着メール一覧のスタイルを追加、全体のレイアウトを grid-template-areas で再構成
+    2026-10-21  広い画面では全カードを画面の高さに収める配置に変更（Redmine・ショートカットの見切れ対策）
 -->
 <style>
 :root {
@@ -53,22 +54,21 @@ body {
 
 /*
  * レイアウト（grid-template-areas）
- * 広い画面: 1 段目に時計・今日の予定・カレンダー、2〜3 段目に新着メール（縦長）とタスク・チャット、
- *           4 段目に Redmine とショートカット
- * 中くらい: 2 列。狭い画面（スマホ）: 1 列で、今日やることに関係する順に並べる
+ * 広い画面: 画面の高さに収まるように配置し、ページ全体はスクロールさせない（各カードの中身をスクロール）
+ *   1 段目: 時計・残業 / 今日の予定 / カレンダー
+ *   2〜3 段目: 新着メール（縦長） / 今日のタスク・チャット / Redmine・ショートカット
+ * 中くらい: 2 列。狭い画面（スマホ）: 1 列で、今日やることに関係する順に並べる（ページをスクロール）
  */
 .grid {
   display: grid;
-  gap: 16px;
-  padding: 16px;
-  max-width: 1440px;
+  gap: 12px;
+  padding: 12px;
   margin: 0 auto;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-areas:
-    "clock clock clock clock clock clock events events events cal cal cal"
-    "mail mail mail mail mail mail mail tasks tasks tasks tasks tasks"
-    "mail mail mail mail mail mail mail chat chat chat chat chat"
-    "redmine redmine redmine redmine redmine redmine redmine sc sc sc sc sc";
+    "clock clock clock clock clock events events events events cal cal cal"
+    "mail mail mail mail mail tasks tasks tasks tasks redmine redmine redmine"
+    "mail mail mail mail mail chat chat chat chat sc sc sc";
 }
 .clock-card     { grid-area: clock; }
 .events-card    { grid-area: events; }
@@ -78,6 +78,35 @@ body {
 .chat-card      { grid-area: chat; }
 .redmine-card   { grid-area: redmine; }
 .shortcuts-card { grid-area: sc; }
+
+/* 画面に収める表示: カードは縦に伸び縮みし、.scroll の部分だけスクロールする */
+@media (min-width: 1200px) and (min-height: 700px) {
+  .grid {
+    height: 100vh;
+    /* タスク・Redmine の段を、チャット・ショートカットの段より高くする */
+    grid-template-rows: auto minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .grid > .card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .grid > .clock-card { flex-direction: row; }
+  .grid > .card > .scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  .list.mail-list { min-height: 0; }
+  .chat-card .stat-value.big { font-size: 28px; }
+  /* 1 段目（カレンダーの高さで決まる）を低くして、下の段に高さを回す */
+  /* （基本のスタイルより後に定義されるものに勝つよう .grid を付けて詳細度を上げる） */
+  .grid .month td { padding: 2px 0; }
+  .grid .month th { padding: 2px 0; }
+  .grid .clock-time { font-size: 56px; }
+  .grid > .card .card-head { margin-bottom: 8px; }
+  /* ショートカットは小さめのタイルにして多く並べる */
+  .grid .shortcuts { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .grid .sc { padding: 8px 4px; gap: 4px; }
+  .grid .sc-icon { font-size: 20px; }
+}
 
 @media (max-width: 1199px) {
   .grid {
